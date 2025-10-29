@@ -1,0 +1,35 @@
+server:
+  port: 8085
+  error:
+    include-message: always
+    include-binding-errors: always
+
+spring:
+  application:
+    name: embedqa
+
+  profiles:
+    active: dev
+
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/embedqa}
+    driver-class-name: org.postgresql.Driver
+    username: ${DATABASE_USERNAME:embedqa_user}
+    password: ${DATABASE_PASSWORD:embedqa_pass}
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+logging:
+  level:
+    com.embedqa: DEBUG
+    org.springframework.web: INFO
+    org.hibernate: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
