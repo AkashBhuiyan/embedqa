@@ -1,5 +1,7 @@
 package com.akash.embedqa.model.entities;
 
+import com.akash.embedqa.converter.EnvironmentVariablesConverter;
+import com.akash.embedqa.model.dtos.request.EnvironmentVariableDTO;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -34,8 +36,12 @@ public class Environment extends BaseEntity {
     @Builder.Default
     private List<ApiRequest> apiRequests = new ArrayList<>();
 
+    /*@Column(columnDefinition = "TEXT")
+    private String variablesJson;*/ // store environment variables as JSON string
+
+    @Convert(converter = EnvironmentVariablesConverter.class)
     @Column(columnDefinition = "TEXT")
-    private String variablesJson; // store environment variables as JSON string
+    private List<EnvironmentVariableDTO> variablesJson;
 
     // Helper
     public void addApiRequest(ApiRequest request) {
