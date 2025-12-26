@@ -12,4 +12,5 @@ public final class AppConstant {
     public static final String BEARER = "Bearer ";
     public static final String BASIC = "Basic ";
     public static final String HTTP_1_1 = "HTTP/1.1";
+    public static final String HTTP = "http://";
 }

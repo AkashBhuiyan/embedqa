@@ -72,6 +72,10 @@ public class ApiExecutorServiceImpl implements ApiExecutorService {
 
             // Build the URL with query parameters
             String resolvedUrl = resolveVariables(request.getUrl(), variables);
+
+            // Ensure URL has a protocol (default to http:// if missing)
+            resolvedUrl = ensureProtocol(resolvedUrl);
+
             URI uri = buildUri(resolvedUrl, request.getQueryParams(), variables);
 
             // Create the appropriate HTTP request
@@ -152,6 +156,20 @@ public class ApiExecutorServiceImpl implements ApiExecutorService {
         matcher.appendTail(result);
 
         return result.toString();
+    }
+
+    private String ensureProtocol(String url) {
+        if (url == null || url.isBlank()) {
+            return url;
+        }
+
+        String trimmedUrl = url.trim();
+
+        if (trimmedUrl.matches("^[a-zA-Z][a-zA-Z0-9+.-]*://.*")) {
+            return trimmedUrl;
+        }
+
+        return AppConstant.HTTP + trimmedUrl;
     }
 
     private boolean hasBody(String method) {
