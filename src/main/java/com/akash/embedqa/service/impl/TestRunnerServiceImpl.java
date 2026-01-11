@@ -52,8 +52,40 @@ public class TestRunnerServiceImpl implements TestRunnerService {
 
             if (request.getAssertions() != null && !request.getAssertions().isEmpty()) {
                 for (AssertionDTO assertion : request.getAssertions()) {
-
                     boolean passed = false;
+
+                    switch (assertion.getType().toLowerCase()) {
+                        case "statuscode":
+                            int expected = Integer.parseInt(assertion.getValue());
+                            int actual = response.getStatusCodeValue();
+                            passed = actual == expected;
+
+                            result.getMessages().add(
+                                    "Excepted status " + expected +
+                                            ", actual " + actual +
+                                            " -> " + (passed ? "PASS" : "FAIL")
+                            );
+                            break;
+                        case "header":
+                            String key = assertion.getKey();
+                            String actualHeader = response.getHeaders().getFirst(key);
+                            passed = assertion.getValue().equals(actualHeader);
+                            result.getMessages().add(
+                                    "Header" + key + "expected=" + assertion.getValue() +
+                                            ", actual=" + actualHeader + " -> " + (passed ? "PASS" : "FAIL")
+                            );
+                            break;
+                        case "bodycontains":
+                            String body = response.getBody() != null ? response.getBody() : "";
+                            passed = body.contains(assertion.getValue());
+                            result.getMessages().add(
+                                    "Body contains \"" + assertion.getValue() + "\" -> " + (passed ? "PASS" : "FAIL")
+                            );
+                            break;
+                        default:
+                            result.getMessages().add("Unknown assertion type: " + assertion.getType());
+                            break;
+                    }
 
                     if ("StatusCode".equalsIgnoreCase(assertion.getType())) {
                         int expected = Integer.parseInt(assertion.getValue());

@@ -1,6 +1,5 @@
 package com.akash.embedqa.controller;
 
-import com.akash.embedqa.model.dtos.test.AssertionDTO;
 import com.akash.embedqa.model.dtos.test.TestRequestDTO;
 import com.akash.embedqa.model.dtos.test.TestResultDTO;
 import com.akash.embedqa.service.TestRunnerService;
@@ -8,7 +7,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
 
 @Slf4j
 @RestController
