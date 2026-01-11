@@ -441,6 +441,309 @@ class HistoryServiceImplTest {
         }
     }
 
+    @Nested
+    @DisplayName("deleteById() Tests")
+    class DeleteByIdTests {
+
+        @Test
+        @DisplayName("Should delete history entry when found")
+        void deleteById_WhenExists_DeletesEntry() {
+            // Arrange
+            when(historyRepository.existsById(1L)).thenReturn(true);
+            doNothing().when(historyRepository).deleteById(1L);
+
+            // Act
+            historyService.deleteById(1L);
+
+            // Assert
+            verify(historyRepository).existsById(1L);
+            verify(historyRepository).deleteById(1L);
+        }
+
+        @Test
+        @DisplayName("Should throw ResourceNotFoundException when not found")
+        void deleteById_WhenNotExists_ThrowsException() {
+            // Arrange
+            when(historyRepository.existsById(999L)).thenReturn(false);
+
+            // Act & Assert
+            assertThatThrownBy(() -> historyService.deleteById(999L))
+                    .isInstanceOf(ResourceNotFoundException.class)
+                    .hasMessageContaining("History entry")
+                    .hasMessageContaining("999");
+
+            verify(historyRepository, never()).deleteById(any());
+        }
+    }
+
+    @Nested
+    @DisplayName("clearAll() Tests")
+    class ClearAllTests {
+
+        @Test
+        @DisplayName("Should delete all history entries")
+        void clearAll_DeletesAllEntries() {
+            // Arrange
+            doNothing().when(historyRepository).deleteAllHistory();
+
+            // Act
+            historyService.clearAll();
+
+            // Assert
+            verify(historyRepository).deleteAllHistory();
+        }
+    }
+
+    @Nested
+    @DisplayName("getStats() Tests")
+    class GetStatsTests {
+
+        @Test
+        @DisplayName("Should return correct statistics")
+        void getStats_ReturnsCorrectStats() {
+            // Arrange
+            List<RequestHistory> histories = Arrays.asList(
+                    createHistory(1L, HttpMethod.GET, 200, 100L),
+                    createHistory(2L, HttpMethod.POST, 201, 150L),
+                    createHistory(3L, HttpMethod.GET, 404, 50L),
+                    createHistory(4L, HttpMethod.DELETE, 500, 200L)
+            );
+
+            when(historyRepository.findAll()).thenReturn(histories);
+
+            // Act
+            HistoryService.HistoryStats stats = historyService.getStats();
+
+            // Assert
+            assertThat(stats.totalRequests()).isEqualTo(4L);
+            assertThat(stats.successCount()).isEqualTo(2L); // 200, 201
+            assertThat(stats.errorCount()).isEqualTo(2L); // 404, 500
+            assertThat(stats.avgResponseTime()).isEqualTo(125.0); // (100+150+50+200)/4
+            assertThat(stats.methodBreakdown()).containsEntry("GET", 2L);
+            assertThat(stats.methodBreakdown()).containsEntry("POST", 1L);
+            assertThat(stats.methodBreakdown()).containsEntry("DELETE", 1L);
+        }
+
+        @Test
+        @DisplayName("Should return empty stats when no history exists")
+        void getStats_WhenEmpty_ReturnsEmptyStats() {
+            // Arrange
+            when(historyRepository.findAll()).thenReturn(Collections.emptyList());
+
+            // Act
+            HistoryService.HistoryStats stats = historyService.getStats();
+
+            // Assert
+            assertThat(stats.totalRequests()).isZero();
+            assertThat(stats.successCount()).isZero();
+            assertThat(stats.errorCount()).isZero();
+            assertThat(stats.avgResponseTime()).isZero();
+            assertThat(stats.methodBreakdown()).isEmpty();
+        }
+
+        @Test
+        @DisplayName("Should handle null response time in average calculation")
+        void getStats_WithNullResponseTime_HandlesGracefully() {
+            // Arrange
+            RequestHistory historyWithNullTime = createHistory(1L, HttpMethod.GET, 200, null);
+            when(historyRepository.findAll()).thenReturn(List.of(historyWithNullTime));
+
+            // Act
+            HistoryService.HistoryStats stats = historyService.getStats();
+
+            // Assert
+            assertThat(stats.avgResponseTime()).isZero();
+        }
+
+        @Test
+        @DisplayName("Should handle null method in breakdown")
+        void getStats_WithNullMethod_HandlesGracefully() {
+            // Arrange
+            RequestHistory historyWithNullMethod = RequestHistory.builder()
+                    .id(1L)
+                    .method(null)
+                    .statusCode(200)
+                    .responseTime(100L)
+                    .build();
+            when(historyRepository.findAll()).thenReturn(List.of(historyWithNullMethod));
+
+            // Act
+            HistoryService.HistoryStats stats = historyService.getStats();
+
+            // Assert
+            assertThat(stats.methodBreakdown()).isEmpty();
+        }
+
+        @Test
+        @DisplayName("Should handle null status code")
+        void getStats_WithNullStatusCode_HandlesGracefully() {
+            // Arrange
+            RequestHistory historyWithNullStatus = RequestHistory.builder()
+                    .id(1L)
+                    .method(HttpMethod.GET)
+                    .statusCode(null)
+                    .responseTime(100L)
+                    .build();
+            when(historyRepository.findAll()).thenReturn(List.of(historyWithNullStatus));
+
+            // Act
+            HistoryService.HistoryStats stats = historyService.getStats();
+
+            // Assert
+            assertThat(stats.successCount()).isZero();
+            assertThat(stats.errorCount()).isZero();
+        }
+
+        @Test
+        @DisplayName("Should count 3xx status codes as success")
+        void getStats_With3xxStatus_CountsAsSuccess() {
+            // Arrange
+            List<RequestHistory> histories = List.of(
+                    createHistory(1L, HttpMethod.GET, 301, 100L),
+                    createHistory(2L, HttpMethod.GET, 302, 100L)
+            );
+            when(historyRepository.findAll()).thenReturn(histories);
+
+            // Act
+            HistoryService.HistoryStats stats = historyService.getStats();
+
+            // Assert
+            assertThat(stats.successCount()).isEqualTo(2L);
+            assertThat(stats.errorCount()).isZero();
+        }
+    }
+
+    @Nested
+    @DisplayName("deleteOlderThan() Tests")
+    class DeleteOlderThanTests {
+
+        @Test
+        @DisplayName("Should delete history older than specified days")
+        void deleteOlderThan_DeletesOldEntries() {
+            // Arrange
+            doNothing().when(historyRepository).deleteOlderThan(any(LocalDateTime.class));
+
+            // Act
+            historyService.deleteOlderThan(30);
+
+            // Assert
+            verify(historyRepository).deleteOlderThan(dateCaptor.capture());
+            LocalDateTime cutoffDate = dateCaptor.getValue();
+            assertThat(cutoffDate).isBefore(LocalDateTime.now().minusDays(29));
+            assertThat(cutoffDate).isAfter(LocalDateTime.now().minusDays(31));
+        }
+
+        @Test
+        @DisplayName("Should calculate correct cutoff date for 7 days")
+        void deleteOlderThan_CalculatesCorrectDateFor7Days() {
+            // Arrange
+            doNothing().when(historyRepository).deleteOlderThan(any(LocalDateTime.class));
+
+            // Act
+            historyService.deleteOlderThan(7);
+
+            // Assert
+            verify(historyRepository).deleteOlderThan(dateCaptor.capture());
+            LocalDateTime cutoffDate = dateCaptor.getValue();
+            LocalDateTime expectedCutoff = LocalDateTime.now().minusDays(7);
+
+            // Allow 1 minute tolerance for test execution time
+            assertThat(cutoffDate).isAfterOrEqualTo(expectedCutoff.minusMinutes(1));
+            assertThat(cutoffDate).isBeforeOrEqualTo(expectedCutoff.plusMinutes(1));
+        }
+
+        @Test
+        @DisplayName("Should handle zero days")
+        void deleteOlderThan_WithZeroDays_DeletesAllOld() {
+            // Arrange
+            doNothing().when(historyRepository).deleteOlderThan(any(LocalDateTime.class));
+
+            // Act
+            historyService.deleteOlderThan(0);
+
+            // Assert
+            verify(historyRepository).deleteOlderThan(dateCaptor.capture());
+            LocalDateTime cutoffDate = dateCaptor.getValue();
+            // Cutoff should be essentially now
+            assertThat(cutoffDate).isAfter(LocalDateTime.now().minusMinutes(1));
+        }
+    }
+
+    @Nested
+    @DisplayName("Mapping Tests")
+    class MappingTests {
+
+        @Test
+        @DisplayName("Should map to summary DTO correctly")
+        void mapToSummaryDTO_MapsCorrectly() {
+            // Arrange
+            Pageable pageable = PageRequest.of(0, 10);
+            Page<RequestHistory> page = new PageImpl<>(List.of(testHistory), pageable, 1);
+
+            when(historyRepository.findAll(any(Specification.class), eq(pageable)))
+                    .thenReturn(page);
+
+            // Act
+            Page<HistoryResponseDTO> result = historyService.getHistory(
+                    null, null, null, null, null, pageable
+            );
+
+            // Assert
+            HistoryResponseDTO dto = result.getContent().get(0);
+            assertThat(dto.getId()).isEqualTo(1L);
+            assertThat(dto.getUrl()).isEqualTo("https://api.example.com/users");
+            assertThat(dto.getMethod()).isEqualTo(HttpMethod.GET);
+            assertThat(dto.getStatusCode()).isEqualTo(200);
+            assertThat(dto.getStatusText()).isEqualTo("OK");
+            assertThat(dto.getResponseTime()).isEqualTo(150L);
+            assertThat(dto.getResponseSize()).isEqualTo(100L);
+            assertThat(dto.getExecutedAt()).isEqualTo(now);
+        }
+
+        @Test
+        @DisplayName("Should handle invalid JSON in headers gracefully")
+        void parseJsonToMap_WithInvalidJson_ReturnsEmptyMap() {
+            // Arrange
+            testHistory.setRequestHeaders("invalid json {{{");
+            when(historyRepository.findById(1L)).thenReturn(Optional.of(testHistory));
+
+            // Act
+            HistoryResponseDTO result = historyService.getById(1L);
+
+            // Assert
+            assertThat(result.getRequest().getHeaders()).isEmpty();
+        }
+
+        @Test
+        @DisplayName("Should handle blank JSON string")
+        void parseJsonToMap_WithBlankString_ReturnsEmptyMap() {
+            // Arrange
+            testHistory.setRequestHeaders("   ");
+            when(historyRepository.findById(1L)).thenReturn(Optional.of(testHistory));
+
+            // Act
+            HistoryResponseDTO result = historyService.getById(1L);
+
+            // Assert
+            assertThat(result.getRequest().getHeaders()).isEmpty();
+        }
+
+        @Test
+        @DisplayName("Should handle empty JSON string")
+        void parseJsonToMap_WithEmptyString_ReturnsEmptyMap() {
+            // Arrange
+            testHistory.setRequestHeaders("");
+            when(historyRepository.findById(1L)).thenReturn(Optional.of(testHistory));
+
+            // Act
+            HistoryResponseDTO result = historyService.getById(1L);
+
+            // Assert
+            assertThat(result.getRequest().getHeaders()).isEmpty();
+        }
+    }
+
+
     private RequestHistory createHistory(Long id, HttpMethod method, int statusCode, Long responseTime) {
         return RequestHistory.builder()
                 .id(id)
