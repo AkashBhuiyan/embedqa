@@ -1,0 +1,17 @@
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+
+  flyway:
+    enabled: true
+    baseline-on-migrate: false
+    baseline-version: 0
+    clean-disabled: false
+    locations: classpath:db/migration
+
+logging:
+  level:
+    com.akash.embedqa: DEBUG
+    org.flywaydb: INFO

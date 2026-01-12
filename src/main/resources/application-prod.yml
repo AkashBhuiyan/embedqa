@@ -1,0 +1,25 @@
+# Production profile configuration
+# Strict validation and minimal logging
+
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: false
+
+  flyway:
+    enabled: true
+    baseline-on-migrate: false
+    validate-on-migrate: true
+    # Never allow clean in production!
+    clean-disabled: true
+
+logging:
+  level:
+    com.akash.embedqa: INFO
+    org.flywaydb: WARN
+    org.hibernate: WARN
+    org.springframework: WARN
