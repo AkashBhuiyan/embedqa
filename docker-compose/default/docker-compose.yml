@@ -1,0 +1,53 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: embedqa-postgres
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: "pg_isready -U embedqa_user -d embedqa"
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    environment:
+      POSTGRES_DB: embedqa
+      POSTGRES_USER: embedqa_user
+      POSTGRES_PASSWORD: embedqa_pass
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - embedqa-network
+
+  embedqa:
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+    image: "akash9229/embedqa:v1"
+    container_name: embedqa-ms
+    ports:
+      - "${SERVER_PORT:-8085}:${SERVER_PORT:-8085}"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: "curl --fail --silent localhost:${SERVER_PORT:-8085}/actuator/health/readiness | grep UP || exit 1"
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+    environment:
+      SERVER_PORT: "${SERVER_PORT:-8085}"
+      SPRING_PROFILES_ACTIVE: "dev"
+      DATABASE_URL: "jdbc:postgresql://postgres:5432/embedqa"
+      DATABASE_USERNAME: embedqa_user
+      DATABASE_PASSWORD: embedqa_pass
+    networks:
+      - embedqa-network
+
+networks:
+  embedqa-network:
+    driver: "bridge"
+
+volumes:
+  postgres_data:
+    driver: local
