@@ -44,7 +44,7 @@ TAG=v1 docker compose -f docker-compose.yml -f docker-compose.test.yml up -d
 docker compose logs -f
 
 # Stop
-docker-compose down
+docker compose down
 ```
 
 ## Environment Variables
@@ -65,13 +65,13 @@ docker build -t akash9229/embedqa:v1 .
 docker push akash9229/embedqa:v1
 
 # Custom port
-SERVER_PORT=9000 docker-compose up -d
+SERVER_PORT=9000 docker compose up -d
 
 # Prod with password
-TAG=v1 DB_PASSWORD=secret docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+TAG=v1 DB_PASSWORD=secret docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 
 # Reset everything
-docker-compose down -v
+docker compose down -v
 ```
 
 ## Health Check
